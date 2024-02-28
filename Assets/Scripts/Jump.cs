@@ -2,52 +2,52 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class DragJump : MonoBehaviour
+public class Jump : MonoBehaviour
 {
-    public Vector3 jumpForce;
-    public float rotationSpeed;
+    public Vector3 jump;
+    public float jumpForce;
+    public float rotationTorque;
+    public float uprightThreshold = 100f; // 회전한 후에 원통이 똑바로 서있는지 확인할 임계값
 
-    private Vector3 dragStartPosition;
-    private bool isDragging;
+    public bool isGrounded;
+    Rigidbody rb;
 
-    private Rigidbody rb;
+    Quaternion initialRotation; // 초기 회전 상태 저장
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        jump = new Vector3(0.0f, 1f, 0.0f);
+        initialRotation = rb.rotation;
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        isGrounded = true;
+    }
+
+    void OnCollisionExit(Collision collision)
+    {
+        isGrounded = false;
     }
 
     void Update()
     {
-        if (Input.touchCount > 0)
+        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
         {
-            Touch touch = Input.touches[0];
+            isGrounded = false;
+            // Apply force for jumping
+            rb.AddForce(jump * jumpForce, ForceMode.Impulse);
 
-            if (touch.phase == TouchPhase.Began)
-            {
-                isDragging = true;
-                dragStartPosition = touch.position;
-            }
-            else if (touch.phase == TouchPhase.Moved)
-            {
-                // Calculate drag direction
-                Vector3 dragDirection = (touch.position - (Vector2)dragStartPosition).normalized;
-
-                // Apply rotation and jump force
-                rb.AddTorque(Vector3.forward * dragDirection.x * rotationSpeed, ForceMode.Impulse);
-                rb.AddForce(jumpForce * dragDirection.y, ForceMode.Impulse);
-            }
-            else if (touch.phase == TouchPhase.Ended)
-            {
-                isDragging = false;
-            }
+            // Apply torque for rotation only along the z-axis
+            rb.AddTorque(Vector3.left * rotationTorque, ForceMode.Impulse);
         }
 
-        if (isDragging)
+        // Check if the cylinder is within the upright threshold
+        if (!isGrounded && Quaternion.Angle(rb.rotation, initialRotation) < uprightThreshold)
         {
-            // Update rotation based on touch drag
-            Vector3 touchDelta = Input.touches[0].position - (Vector2)dragStartPosition;
-            rb.AddTorque(Vector3.forward * touchDelta.x * rotationSpeed * Time.deltaTime, ForceMode.Force);
+            // If within the threshold, reset rotation to initial rotation
+            rb.rotation = Quaternion.Lerp(rb.rotation, initialRotation, Time.deltaTime * 2f);
         }
     }
 }
